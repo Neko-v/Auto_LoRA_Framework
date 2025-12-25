@@ -1,0 +1,57 @@
+# /config/config.toml
+
+[model_arguments]
+# 基础模型路径
+pretrained_model_name_or_path = "V:/Auto_LoRA/LoRA-AutoTrainer/models/stable-diffusion-v1-5.safetensors"
+v2 = false
+v_parameterization = false
+
+[additional_network_arguments]
+# LoRA核心
+network_module = "networks.lora"
+# Rank(维度): 32 适合人像
+network_dim = 32
+# Alpha: 通常是Dim的一般或相等, 防止过拟合
+network_alpha = 16
+
+[optimizer_arguments]
+# 优化器: AdamW8bit 省显存
+optimizer_type = "AdamW8bit"
+# 学习率
+learning_rate = 1e-4
+text_encoder_lr = 5e-5
+unet_lr = 1e-4
+lr_scheduler = "constant"
+lr_warmup_steps = 0
+
+[dataset_arguments]
+# 显存优化: 缓存潜变量
+cache_latents = true
+# 分辨率: 必须和SmartCropper设定的一致
+resolution = "512,512"
+# 读取.txt文件
+caption_extension = ".txt"
+
+[training_arguments]
+# 输出路径
+output_dir = "V:/Auto_LoRA/LoRA-AutoTrainer/output"
+# 输出的LoRA文件名(最终得到的sivi.safetensors)
+output_name = "sivi"
+
+# 训练精度
+save_precision = "fp16"
+mixed_precision = "fp16"
+
+# 训练轮数设置
+# epoch = 10 表示整个数据集会被过10遍
+# 文件夹名: 40_sivi, 意味着每张图每1个epoch会被训练40次
+# 总步数 = 图片数 * 40 * epoch, 对于20张小样本集, 速度会更快
+max_train_epochs = 10
+# 保存每一步学习的设为1, 如果不想中间的文件, 设置为9999或和epoch一样的数量就可以
+save_every_n_epochs = 1
+
+train_batch_size = 1
+max_token_length = 225
+gradient_accumulation_steps = 1
+xformers = false
+sdpa = true
