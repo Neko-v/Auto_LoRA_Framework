@@ -1,4 +1,4 @@
-# /gui.py
+# /gui_en.py
 
 import gradio as gr
 import os
@@ -69,13 +69,13 @@ def stop_current_job():
 
     if killed:
         messages = [
-            "用户点击停止按钮, 正在终止当前任务...",
-            "任务已被用户停止",
+            "Stop button clicked. Terminating the current task...",
+            "Task stopped by user",
         ]
     else:
         messages = [
-            "用户点击停止按钮",
-            "当前没有检测到活跃子进程, 任务可能已经结束或尚未启动",
+            "Stop button clicked",
+            "No active subprocess was detected. The task may have already finished or has not started yet",
         ]
 
     for msg in messages:
@@ -90,7 +90,7 @@ def stop_current_job():
         job.update_status(
             status="cancelled",
             stage="cancelled",
-            message="用户手动停止任务",
+            message="Task stopped by user",
         )
         clear_active_job(job)
 
@@ -99,13 +99,13 @@ def stop_current_job():
 def get_base_models():
     """自动扫描 models 文件夹下的 .safetensors 文件"""
     if not os.path.exists(MODELS_DIR):
-        return ["未找到模型文件"]
+        return ["Model file not found"]
 
     files = sorted(
         f for f in os.listdir(MODELS_DIR)
         if f.lower().endswith(".safetensors")
     )
-    return files if files else ["未找到模型文件"]
+    return files if files else ["Model file not found"]
 
 def apply_profile(profile_name):
     """将训练 Profile 应用到 GUI 控件"""
@@ -151,15 +151,15 @@ def run_training_process(
     # 1. 基础校验
     trigger_word = trigger_word.strip() if trigger_word else ""
     if not folder_path or not os.path.exists(folder_path):
-        yield "ERROR: 图片文件夹路径不存在", None
+        yield "ERROR: Image folder path does not exist", None
         return
     
     if not trigger_word:
-        yield "ERROR: 必须填写触发词", None
+        yield "ERROR: Trigger word is required", None
         return
 
-    if not base_model_name or base_model_name in ["未找到模型文件", "No models"]:
-        yield "ERROR: 请先在 models 文件夹放入底模", None
+    if not base_model_name or base_model_name in ["Model file not found", "No models"]:
+        yield "ERROR: Please place the bottom mold in the models folder first", None
         return
 
     # 2. 确定参数
@@ -176,12 +176,12 @@ def run_training_process(
     # 构造完整底模路径
     base_model_path = os.path.join(MODELS_DIR, base_model_name)
     if not os.path.exists(base_model_path):
-        yield f"ERROR: 找不到底模文件: {base_model_path}", None
+        yield f"ERROR: Base model file not found: {base_model_path}", None
         return
     
     # Alpha 校验
     if int(network_alpha) > int(network_dim):
-        yield "ERROR: LoRA Alpha 当前建议小于或等于 Rank / Network Dim", None
+        yield "ERROR: LoRA Alpha current recommendation is less than or equal to Rank / Network Dim", None
         return
     
     try:
@@ -189,13 +189,13 @@ def run_training_process(
         float(str(text_encoder_lr).strip())
         float(str(unet_lr).strip())
     except ValueError:
-        yield "ERROR: 学习率格式不正确, 请使用类似 1e-4 或 0.0001 的格式", None
+        yield "ERROR: Invalid learning rate format. Please use a format such as 1e-4 or 0.0001", None
         return
     
     # 创建本次任务的日志目录
     job = JobManager(PROJECT_ROOT, trigger_word)
     ACTIVE_JOB["job"] = job
-    job.update_status(status="running", stage="init", message="任务初始化")
+    job.update_status(status="running", stage="init", message="Task Initialization")
 
     train_config = TrainConfig(
         resolution=512,
@@ -240,12 +240,12 @@ def run_training_process(
         return push_ui_log(msg)
 
     # 阶段1 数据准备
-    yield update_log(f"开始任务: {trigger_word}"), None
-    yield update_log(f"数据源: {folder_path}"), None
-    yield update_log(f"模式: {train_mode} | 打标: {caption_method}"), None
-    yield update_log(f"Job 日志目录: {job.job_dir}"), None
+    yield update_log(f"Task started: {trigger_word}"), None
+    yield update_log(f"Data source: {folder_path}"), None
+    yield update_log(f"Mode: {train_mode} | Caption method: {caption_method}"), None
+    yield update_log(f"Job Log Directory: {job.job_dir}"), None
 
-    yield update_log("正在初始化处理管线..."), None
+    yield update_log("Initializing pipeline..."), None
     
     try:
         # 实例化 Pipeline
@@ -258,7 +258,7 @@ def run_training_process(
         )
         
         # Step 1: 建立目录
-        yield update_log("正在建立训练目录..."), None
+        yield update_log("Creating training directory..."), None
         dataset_path = pipeline.setup_directories(
             instance_name=trigger_word,
             class_name=class_name,
@@ -266,42 +266,42 @@ def run_training_process(
         )
         
         # Step 2: 智能裁剪
-        yield update_log("正在进行智能裁剪 (Smart Crop)..."), None
-        job.update_status(status="running", stage="crop", message="正在裁剪图片")
+        yield update_log("Running Smart Crop..."), None
+        job.update_status(status="running", stage="crop", message="Cropping image")
 
         try:
             for line in pipeline.run_crop_stream(dataset_path, mode=train_mode):
                 yield update_log(line), None
         except Exception as e:
             if STOP_REQUESTED["value"]:
-                job.update_status(status="cancelled", stage="crop", message="用户手动停止任务")
+                job.update_status(status="cancelled", stage="crop", message="Task stopped by user")
             else:
                 job.update_status(status="failed", stage="crop", message=str(e))
-                yield update_log(f"裁剪失败: {e}"), None
+                yield update_log(f"Cropping failed: {e}"), None
 
             clear_active_job(job)
             return
             
         # Step 3: 自动打标
-        yield update_log(f"正在进行自动打标 ({caption_method})..."), None
-        job.update_status(status="running", stage="caption", message="正在自动打标")
+        yield update_log(f"Running automatic captioning ({caption_method})..."), None
+        job.update_status(status="running", stage="caption", message="Automatically captioning")
 
         try:
             for line in pipeline.run_caption_stream(dataset_path, trigger_word, class_name):
                 yield update_log(line), None
         except Exception as e:
             if STOP_REQUESTED["value"]:
-                job.update_status(status="cancelled", stage="caption", message="用户手动停止任务")
+                job.update_status(status="cancelled", stage="caption", message="Task stopped by user")
             else:
                 job.update_status(status="failed", stage="caption", message=str(e))
-                yield update_log(f"打标失败: {e}"), None
+                yield update_log(f"Captioning Failed: {e}"), None
 
             clear_active_job(job)
             return
 
         # Step 4: 数据集校验
-        yield update_log("正在检查训练数据集..."), None
-        job.update_status(status="running", stage="validate", message="正在检查训练数据集")
+        yield update_log("Validating training dataset..."), None
+        job.update_status(status="running", stage="validate", message="Checking training dataset")
 
         validation_result = validate_dataset_folder(dataset_path)
 
@@ -312,20 +312,20 @@ def run_training_process(
             job.update_status(
                 status="failed",
                 stage="validate",
-                message="数据集校验失败",
+                message="Dataset validation failed",
             )
-            yield update_log("ERROR: 数据集校验失败, 训练已停止"), None
+            yield update_log("ERROR: Dataset validation failed, training has stopped"), None
             clear_active_job(job)
             return
 
-        yield update_log("数据准备完成"), None
+        yield update_log("Dataset preparation completed"), None
 
     except Exception as e:
         if STOP_REQUESTED["value"]:
-            job.update_status(status="cancelled", stage="prepare", message="用户手动停止任务")
+            job.update_status(status="cancelled", stage="prepare", message="Task stopped by user")
         else:
             job.update_status(status="failed", stage="prepare", message=str(e))
-            yield update_log(f"阶段1发生异常: {str(e)}"), None
+            yield update_log(f"Stage 1 Exception Occurs: {str(e)}"), None
             import traceback
             traceback.print_exc()
 
@@ -333,9 +333,9 @@ def run_training_process(
         return
 
     # 阶段2 开始训练
-    yield update_log("正在启动 Kohya 训练内核..."), None
-    job.update_status(status="running", stage="train", message="正在启动训练")
-    yield update_log("训练日志将实时显示在当前窗口中..."), None
+    yield update_log("Starting Kohya training backend..."), None
+    job.update_status(status="running", stage="train", message="Starting training")
+    yield update_log("Training logs will be displayed here in real time..."), None
     
     train_data_root = os.path.dirname(dataset_path)
     output_instance_dir = job.output_dir
@@ -354,7 +354,7 @@ def run_training_process(
 
         train_command_path = job.save_train_command(train_cmd)
 
-        yield update_log(f"训练命令已保存: {train_command_path}"), None
+        yield update_log(f"Training command saved: {train_command_path}"), None
 
         for line in trainer.run_training_stream(
             base_model_path=base_model_path,
@@ -367,19 +367,19 @@ def run_training_process(
 
         model_file = os.path.join(output_instance_dir, f"{trigger_word}.safetensors")
 
-        job.update_status(status="success", stage="done", message=f"模型已保存: {model_file}")
+        job.update_status(status="success", stage="done", message=f"Model saved: {model_file}")
         
-        yield update_log("训练成功"), model_file
-        yield update_log(f"模型位置: {model_file}"), model_file
+        yield update_log("Training completed successfully"), model_file
+        yield update_log(f"Model path: {model_file}"), model_file
 
         clear_active_job(job)
 
     except Exception as e:
         if STOP_REQUESTED["value"]:
-            job.update_status(status="cancelled", stage="train", message="用户手动停止任务")
+            job.update_status(status="cancelled", stage="train", message="Task stopped by user")
         else:
             job.update_status(status="failed", stage="train", message=str(e))
-            yield update_log(f"训练失败: {e}"), None
+            yield update_log(f"Training Failed: {e}"), None
 
         clear_active_job(job)
         return
@@ -407,32 +407,32 @@ with gr.Blocks(
     default_profile = get_profile_config(DEFAULT_PROFILE_NAME)
 
     gr.Markdown("# Auto_LoRA")
-    gr.Markdown("上传图片, 一键生成 LoRA 模型")
+    gr.Markdown("Prepare image datasets and train LoRA models with one click.")
 
     with gr.Row():
         # 左侧设置区
         with gr.Column(scale=4):
             with gr.Group():
-                gr.Markdown("### 1. 数据来源")
+                gr.Markdown("### 1. Data Source")
                 # 默认值
                 folder_input = gr.Textbox(
-                    label="图片文件夹路径 (绝对路径)", 
+                    label="Image Folder Path", 
                     value=r"V:\Auto_LoRA\LoRA-AutoTrainer\data\Your_file",
-                    placeholder="例如: V:\Auto_LoRA\data\My_Photos"
+                    placeholder="Example: V:\Auto_LoRA\data\My_Photos"
                 )
                 trigger_input = gr.Textbox(
-                    label="触发词 (Instance Name)", 
+                    label="Trigger Word / Instance Name", 
                     value="sivi",
-                    placeholder="例如: sivi"
+                    placeholder="Example: sivi"
                 )
 
             with gr.Group():
-                gr.Markdown("### 2. 训练配置")
+                gr.Markdown("### 2. Training Configuration")
 
                 profile_dropdown = gr.Dropdown(
                     choices=get_profile_names(),
                     value=DEFAULT_PROFILE_NAME,
-                    label="训练预设 Profile"
+                    label="Training Profile"
                 )
 
                 profile_description = gr.Markdown(
@@ -442,7 +442,7 @@ with gr.Blocks(
                 mode_radio = gr.Radio(
                     choices=["人物 (Person)", "画风 (Style)"],
                     value=default_profile["mode_selection"],
-                    label="训练模式 (会自动调整裁剪和打标策略)"
+                    label="Training Mode"
                 )
                 
                 # 自动读取 models 文件夹
@@ -450,7 +450,7 @@ with gr.Blocks(
                 model_dropdown = gr.Dropdown(
                     choices=model_list,
                     value=model_list[0] if model_list else None,
-                    label="选择底模 (Base Model)"
+                    label="Base Model"
                 )
                 
                 with gr.Row():
@@ -459,20 +459,20 @@ with gr.Blocks(
                         maximum=100,
                         step=10,
                         value=default_profile["repeats"],
-                        label="单图重复次数 (Repeats)"
+                        label="Repeats Per Image"
                     )
                     epochs_slider = gr.Slider(
                         minimum=1,
                         maximum=30,
                         step=1,
                         value=default_profile["epochs"],
-                        label="训练轮数 (Epochs)"
+                        label="Epochs"
                     )
             
             with gr.Group():
-                with gr.Accordion("高级训练参数", open=False, elem_id="advanced-settings"):
+                with gr.Accordion("Advanced Training Parameters", open=False, elem_id="advanced-settings"):
                     gr.Markdown(
-                        "这些参数适合有经验的用户微调, 8GB 显存建议保持 Batch Size = 1"
+                        "These settings are intended for advanced users. For 6-8GB GPUs, keep Batch Size = 1"
                     )
                     with gr.Row():
                         network_dim_slider = gr.Slider(
@@ -490,7 +490,7 @@ with gr.Blocks(
                             label="LoRA Alpha"
                         )
                         gr.Markdown(
-                            "Rank 控制 LoRA 容量, 越大越能学习细节, 但更容易过拟合, Alpha 通常设为 Rank 的一半或相同"
+                            "Rank controls LoRA capacity. Higher values can learn more detail but may overfit more easily. Alpha is usually set to half of Rank or equal to Rank"
                         )
 
                     with gr.Row():
@@ -507,7 +507,7 @@ with gr.Blocks(
                             value=default_profile["unet_lr"]
                         )
                         gr.Markdown(
-                            "Learning Rate 控制整体学习强度, 过高容易过拟合或出图崩坏, 过低可能学习不足"
+                            "Learning Rate controls training strength. Too high may cause overfitting or unstable results; too low may underfit"
                         )
 
                     with gr.Row():
@@ -519,14 +519,14 @@ with gr.Blocks(
                             label="Batch Size"
                         )
                         gr.Markdown(
-                            "Batch Size 越大显存占用越高, 面向消费级 6-8GB 显卡时, 建议保持为 1"
+                            "Higher Batch Size uses more VRAM. For consumer 6-8GB GPUs, Batch Size = 1 is recommended"
                         )
                         save_every_slider = gr.Slider(
                             minimum=1,
                             maximum=10,
                             step=1,
                             value=default_profile["save_every_n_epochs"],
-                            label="每 N 个 Epoch 保存一次"
+                            label="Save Every N Epochs"
                         )
                         seed_input = gr.Number(
                             label="Seed",
@@ -535,21 +535,21 @@ with gr.Blocks(
                         )
                 
             with gr.Row():
-                start_btn = gr.Button("立即开始训练", variant="primary", size="lg")
-                stop_btn = gr.Button("停止当前训练", variant="stop", size="lg")
+                start_btn = gr.Button("Start Training", variant="primary", size="lg")
+                stop_btn = gr.Button("Stop Training", variant="stop", size="lg")
 
         # 右侧日志区
         with gr.Column(scale=6):
-            gr.Markdown("### 运行日志")
+            gr.Markdown("### Runtime Log")
             log_output = gr.Code(
-                label="系统状态", 
+                label="System Status", 
                 language="shell", 
                 lines=20,
                 interactive=False
             )
             
-            gr.Markdown("### 训练结果")
-            result_file = gr.File(label="下载生成的模型", interactive=False)
+            gr.Markdown("### Training Result")
+            result_file = gr.File(label="Download Generated Model", interactive=False)
 
     # 绑定点击事件
     profile_dropdown.change(
@@ -600,6 +600,6 @@ with gr.Blocks(
     )
 
 if __name__ == "__main__":
-    print("启动 WebUI...")
+    print("Launching WebUI...")
     # inbrowser=True 会自动在浏览器打开
     demo.queue().launch(inbrowser=True, show_error=True)

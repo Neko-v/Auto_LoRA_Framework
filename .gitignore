@@ -1,9 +1,33 @@
-models/
-output/
-venv/
+# Python cache
 __pycache__/
+*.pyc
+
+# IDE
+.vscode/
+
+# Local environments
+pyenv/
+venv/
+.env/
+.venv/
+
+# User data and training outputs
+data/
+dataset/
+runs/
+output/
+
+# Models
+models/
+*.safetensors
+*.ckpt
 *.pt
 *.pth
-*.safetensors
-*.bin
-*.ckpt
+
+# Kohya sd-scripts if stored locally
+sd-scripts/
+
+# Logs and OS
+*.log
+.DS_Store
+Thumbs.db

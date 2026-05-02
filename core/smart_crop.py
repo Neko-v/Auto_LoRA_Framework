@@ -14,7 +14,7 @@ class SmartCropper:
         # 初始化 MediaPipe 人脸检测
         self.mp_face_detection = mp.solutions.face_detection
         
-        # 这就是你之前代码里的设置, 对于很多高清图, 这个模式反而比近距离模式更准
+        # 对于高清图, 此模式比近距离模式更准
         self.face_detection = self.mp_face_detection.FaceDetection(
             model_selection=1, 
             min_detection_confidence=0.5
@@ -141,7 +141,7 @@ class SmartCropper:
 
     def process_image(self, image_path, output_path, mode="person"):
         try:
-            # 保持这个读取逻辑, 防止中文路径报错
+            # 保持读取逻辑, 防止中文路径报错
             img_stream = np.fromfile(image_path, dtype=np.uint8)
             image = cv2.imdecode(img_stream, cv2.IMREAD_COLOR)
             
